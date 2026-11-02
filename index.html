@@ -3,85 +3,106 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>YouTube Search</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lightweight Video Search</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#0f0f0f;color:#fff;font-family:Arial,sans-serif}
-header{padding:18px;background:#181818;position:sticky;top:0;z-index:5}
-h1{margin:0 0 14px;font-size:23px}
-.search{display:flex;gap:8px}
-input{flex:1;min-width:0;background:#222;color:white;border:1px solid #444;border-radius:24px;padding:13px 17px;font-size:16px}
-button{cursor:pointer;background:#303030;color:white;border:0;border-radius:22px;padding:12px 18px;font-size:15px}
-button:hover{background:#484848}
-main{max-width:1100px;margin:auto;padding:18px}
-.player{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}
-iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-#now{margin:12px 0 24px;font-size:17px;font-weight:bold}
-#status{color:#bbb;margin:16px 0}
-.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
-.video{background:#1b1b1b;border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid transparent}
-.video:focus,.video:hover{border-color:#777;outline:none}
-.video img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#222}
-.info{padding:11px}
-.title{font-size:15px;font-weight:bold;line-height:1.4}
-.channel{font-size:13px;color:#aaa;margin-top:7px}
-@media(max-width:500px){main{padding:12px}.results{grid-template-columns:1fr 1fr;gap:10px}.info{padding:8px}.title{font-size:13px}button{padding:10px 13px}}
+body{margin:0;background:#101010;color:#fff;font:15px Arial,sans-serif}
+header{padding:14px;background:#181818;position:sticky;top:0;z-index:2}
+h1{font-size:21px;margin:0 0 12px}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;padding:13px;border-radius:25px;border:1px solid #444;background:#222;color:#fff;font-size:16px}
+button{border:0;border-radius:22px;padding:12px 17px;background:#383838;color:white;cursor:pointer}
+button:disabled{opacity:.5}
+main{max-width:1050px;margin:auto;padding:14px}
+#status{color:#bbb;margin:14px 0}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.video{background:#1b1b1b;border-radius:9px;overflow:hidden;cursor:pointer;border:1px solid #292929}
+.video:active{opacity:.8}
+.video img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#222}
+.info{padding:10px}
+.title{font-weight:bold;line-height:1.4}
+.channel{color:#aaa;font-size:12px;margin-top:7px}
+#more{margin:20px auto;display:block}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:10;display:none;overflow:auto;padding:14px}
+.modal.open{display:block}
+.modal-inner{width:100%;max-width:950px;margin:0 auto}
+.modal-head{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
+.modal-title{font-weight:bold;overflow-wrap:anywhere}
+.close{font-size:24px;min-width:46px}
+.player{width:100%;aspect-ratio:16/9;background:#000;position:relative}
+iframe{width:100%;height:100%;position:absolute;inset:0;border:0}
+#loading{padding:15px;text-align:center;color:#ddd}
+#fallback{padding:10px 0;color:#bbb}
+a{color:#9fc5ff}
+.hidden{display:none!important}
+@media(max-width:480px){.results{grid-template-columns:1fr 1fr;gap:8px}.info{padding:8px}.title{font-size:13px}main{padding:9px}}
 </style>
 </head>
 <body>
 <header>
   <h1>▶ Video Search</h1>
-  <form class="search" id="searchForm">
-    <input id="query" placeholder="Search YouTube..." required>
-    <button type="submit">Search</button>
+  <form id="form">
+    <input id="query" placeholder="Search videos..." required>
+    <button id="search" type="submit">Search</button>
   </form>
 </header>
 
 <main>
-  <div class="player">
-    <iframe id="player"
-      src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ"
-      title="Video player"
-      referrerpolicy="strict-origin-when-cross-origin"
-      allow="accelerometer; autoplay; encrypted-media; picture-in-picture; web-share"
-      allowfullscreen>
-    </iframe>
-  </div>
-  <div id="now">Choose a video from the results</div>
-  <div id="status">Search for something to get started.</div>
+  <div id="status">Search for a video to get started.</div>
   <div class="results" id="results"></div>
-  <button id="more" hidden>Load more</button>
+  <button id="more" class="hidden">Load more results</button>
 </main>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true"
+     aria-label="Video player">
+  <div class="modal-inner">
+    <div class="modal-head">
+      <div class="modal-title" id="playingTitle">Loading video...</div>
+      <button class="close" id="close" aria-label="Close player">✕</button>
+    </div>
+    <div class="player" id="playerBox"></div>
+    <div id="loading">Connecting to YouTube...</div>
+    <div id="fallback" class="hidden">
+      Taking too long? Try
+      <a id="youtubeLink" href="#" target="_blank" rel="noopener noreferrer">
+        opening this video on YouTube
+      </a>.
+    </div>
+  </div>
+</div>
 
 <script>
 const API_KEY = "AIzaSyAzipHo0_HzdCfGHHlUvx7Q519nZzm6wew";
 
-const form = document.getElementById("searchForm");
-const query = document.getElementById("query");
-const results = document.getElementById("results");
-const status = document.getElementById("status");
-const player = document.getElementById("player");
-const now = document.getElementById("now");
-const more = document.getElementById("more");
+const $ = id => document.getElementById(id);
+let nextPage = "";
+let searchTerm = "";
+let busy = false;
+let loadTimer;
 
-let nextPageToken = "";
-let currentQuery = "";
-let loading = false;
+function showStatus(text) {
+  $("status").textContent = text;
+}
 
-async function searchVideos(loadMore = false) {
-  if (loading) return;
+$("form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (busy) return;
 
-  if (!loadMore) {
-    currentQuery = query.value.trim();
-    if (!currentQuery) return;
-    results.replaceChildren();
-    nextPageToken = "";
-  }
+  searchTerm = $("query").value.trim();
+  if (!searchTerm) return;
 
-  loading = true;
-  status.textContent = "Searching...";
-  more.hidden = true;
+  nextPage = "";
+  $("results").replaceChildren();
+  $("more").classList.add("hidden");
+  await searchVideos(false);
+});
+
+async function searchVideos(append) {
+  if (busy) return;
+  busy = true;
+  $("search").disabled = true;
+  showStatus("Searching...");
 
   try {
     const params = new URLSearchParams({
@@ -89,45 +110,53 @@ async function searchVideos(loadMore = false) {
       part: "snippet",
       type: "video",
       videoEmbeddable: "true",
-      q: currentQuery,
-      maxResults: "12",
+      q: searchTerm,
+      maxResults: "8",
       safeSearch: "moderate",
       regionCode: "US"
     });
 
-    if (loadMore && nextPageToken) {
-      params.set("pageToken", nextPageToken);
-    }
+    if (append && nextPage) params.set("pageToken", nextPage);
 
-    const response = await fetch(
-      "https://www.googleapis.com/youtube/v3/search?" + params
-    );
-    const data = await response.json();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+
+    let response;
+    let data;
+    try {
+      response = await fetch(
+        "https://www.googleapis.com/youtube/v3/search?" + params,
+        {signal: controller.signal}
+      );
+      data = await response.json();
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (!response.ok) {
-      throw new Error(data.error?.message || "Search request failed.");
+      throw new Error(data.error?.message || "Search failed.");
     }
 
-    nextPageToken = data.nextPageToken || "";
+    nextPage = data.nextPageToken || "";
 
-    if (!data.items || data.items.length === 0) {
-      status.textContent = "No videos found. Try another search.";
+    if (!data.items?.length && !append) {
+      showStatus("No results found. Try another search.");
       return;
     }
 
-    for (const item of data.items) {
+    for (const item of data.items || []) {
       const id = item.id.videoId;
       if (!id) continue;
 
-      const card = document.createElement("div");
+      const card = document.createElement("article");
       card.className = "video";
       card.tabIndex = 0;
       card.setAttribute("role", "button");
-      card.setAttribute("aria-label", "Play " + item.snippet.title);
 
       const img = document.createElement("img");
-      img.src = item.snippet.thumbnails.medium?.url ||
-                item.snippet.thumbnails.default?.url || "";
+      // Smaller thumbnail request helps on slow connections.
+      img.src = "https://i.ytimg.com/vi/" +
+        encodeURIComponent(id) + "/mqdefault.jpg";
       img.alt = "";
       img.loading = "lazy";
 
@@ -145,41 +174,84 @@ async function searchVideos(loadMore = false) {
       info.append(title, channel);
       card.append(img, info);
 
-      function playVideo() {
-        player.src =
-          "https://www.youtube-nocookie.com/embed/" +
-          encodeURIComponent(id) + "?autoplay=1";
-        now.textContent = item.snippet.title;
-        window.scrollTo({top: 0, behavior: "smooth"});
-      }
-
-      card.addEventListener("click", playVideo);
+      const play = () => openPlayer(id, item.snippet.title);
+      card.addEventListener("click", play);
       card.addEventListener("keydown", e => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          playVideo();
+          play();
         }
       });
 
-      results.append(card);
+      $("results").append(card);
     }
 
-    status.textContent = "Search results for: " + currentQuery;
-    more.hidden = !nextPageToken;
+    showStatus("Results for: " + searchTerm);
+    $("more").classList.toggle("hidden", !nextPage);
   } catch (error) {
-    status.textContent = "Error: " + error.message +
-      " Check your API key and make sure YouTube Data API v3 is enabled.";
+    showStatus(error.name === "AbortError"
+      ? "Search timed out. Try again when your connection is better."
+      : "Search error: " + error.message);
   } finally {
-    loading = false;
+    busy = false;
+    $("search").disabled = false;
   }
 }
 
-form.addEventListener("submit", e => {
-  e.preventDefault();
-  searchVideos();
-});
+$("more").addEventListener("click", () => searchVideos(true));
 
-more.addEventListener("click", () => searchVideos(true));
+function openPlayer(id, title) {
+  clearTimeout(loadTimer);
+
+  $("playingTitle").textContent = title;
+  $("playerBox").replaceChildren();
+  $("loading").textContent = "Connecting to YouTube... This may take a while on a slow network.";
+  $("loading").classList.remove("hidden");
+  $("fallback").classList.add("hidden");
+  $("youtubeLink").href =
+    "https://www.youtube.com/watch?v=" + encodeURIComponent(id);
+
+  $("modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+
+  const iframe = document.createElement("iframe");
+  iframe.title = title;
+  iframe.allow = "accelerometer; autoplay; encrypted-media; picture-in-picture; web-share";
+  iframe.allowFullscreen = true;
+  iframe.referrerPolicy = "strict-origin-when-cross-origin";
+  iframe.loading = "eager";
+
+  // Add the player after opening the popup so it loads only when requested.
+  $("playerBox").append(iframe);
+  iframe.src = "https://www.youtube-nocookie.com/embed/" +
+    encodeURIComponent(id) + "?rel=0";
+
+  iframe.addEventListener("load", () => {
+    $("loading").textContent =
+      "The player loaded. If the video stays blank, use the YouTube link below.";
+  });
+
+  loadTimer = setTimeout(() => {
+    $("loading").textContent =
+      "Still waiting? The connection may be slow, or YouTube may have blocked this embed.";
+    $("fallback").classList.remove("hidden");
+  }, 12000);
+}
+
+function closePlayer() {
+  clearTimeout(loadTimer);
+  $("modal").classList.remove("open");
+  document.body.style.overflow = "";
+  $("playerBox").replaceChildren(); // Stop playback when closing.
+}
+
+$("close").addEventListener("click", closePlayer);
+$("modal").addEventListener("click", e => {
+  if (e.target === $("modal")) closePlayer();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closePlayer();
+});
 </script>
 </body>
 </html>
