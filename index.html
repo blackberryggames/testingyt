@@ -4,35 +4,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lightweight Video Search</title>
+<title>YouTube Search</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#101010;color:#fff;font:15px Arial,sans-serif}
 header{padding:14px;background:#181818;position:sticky;top:0;z-index:2}
-h1{font-size:21px;margin:0 0 12px}
+h1{font-size:22px;margin:0 0 12px}
 form{display:flex;gap:8px}
-input{flex:1;min-width:0;padding:13px;border-radius:25px;border:1px solid #444;background:#222;color:#fff;font-size:16px}
+input{flex:1;min-width:0;padding:13px;border-radius:25px;border:1px solid #444;background:#222;color:white;font-size:16px}
 button{border:0;border-radius:22px;padding:12px 17px;background:#383838;color:white;cursor:pointer}
 button:disabled{opacity:.5}
 main{max-width:1050px;margin:auto;padding:14px}
 #status{color:#bbb;margin:14px 0}
 .results{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
 .video{background:#1b1b1b;border-radius:9px;overflow:hidden;cursor:pointer;border:1px solid #292929}
-.video:active{opacity:.8}
+.video:hover{border-color:#777}
 .video img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#222}
 .info{padding:10px}
 .title{font-weight:bold;line-height:1.4}
 .channel{color:#aaa;font-size:12px;margin-top:7px}
 #more{margin:20px auto;display:block}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:10;display:none;overflow:auto;padding:14px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:10;display:none;overflow:auto;padding:14px}
 .modal.open{display:block}
-.modal-inner{width:100%;max-width:950px;margin:0 auto}
+.modal-inner{width:100%;max-width:950px;margin:auto}
 .modal-head{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
 .modal-title{font-weight:bold;overflow-wrap:anywhere}
-.close{font-size:24px;min-width:46px}
+.close{font-size:23px;min-width:46px}
 .player{width:100%;aspect-ratio:16/9;background:#000;position:relative}
 iframe{width:100%;height:100%;position:absolute;inset:0;border:0}
-#loading{padding:15px;text-align:center;color:#ddd}
+#loading{padding:12px;text-align:center;color:#ddd}
 #fallback{padding:10px 0;color:#bbb}
 a{color:#9fc5ff}
 .hidden{display:none!important}
@@ -43,7 +43,7 @@ a{color:#9fc5ff}
 <header>
   <h1>▶ Video Search</h1>
   <form id="form">
-    <input id="query" placeholder="Search videos..." required>
+    <input id="query" placeholder="Search YouTube..." required>
     <button id="search" type="submit">Search</button>
   </form>
 </header>
@@ -51,23 +51,19 @@ a{color:#9fc5ff}
 <main>
   <div id="status">Search for a video to get started.</div>
   <div class="results" id="results"></div>
-  <button id="more" class="hidden">Load more results</button>
+  <button id="more" class="hidden">Load more</button>
 </main>
 
-<div class="modal" id="modal" role="dialog" aria-modal="true"
-     aria-label="Video player">
+<div class="modal" id="modal">
   <div class="modal-inner">
     <div class="modal-head">
-      <div class="modal-title" id="playingTitle">Loading video...</div>
-      <button class="close" id="close" aria-label="Close player">✕</button>
+      <div class="modal-title" id="playingTitle">Video player</div>
+      <button class="close" id="close">✕</button>
     </div>
     <div class="player" id="playerBox"></div>
-    <div id="loading">Connecting to YouTube...</div>
+    <div id="loading">Loading video...</div>
     <div id="fallback" class="hidden">
-      Taking too long? Try
-      <a id="youtubeLink" href="#" target="_blank" rel="noopener noreferrer">
-        opening this video on YouTube
-      </a>.
+      If it does not play, <a id="youtubeLink" href="#" target="_blank" rel="noopener noreferrer">open this video on YouTube</a>.
     </div>
   </div>
 </div>
@@ -81,12 +77,8 @@ let searchTerm = "";
 let busy = false;
 let loadTimer;
 
-function showStatus(text) {
-  $("status").textContent = text;
-}
-
-$("form").addEventListener("submit", async event => {
-  event.preventDefault();
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
   if (busy) return;
 
   searchTerm = $("query").value.trim();
@@ -102,7 +94,7 @@ async function searchVideos(append) {
   if (busy) return;
   busy = true;
   $("search").disabled = true;
-  showStatus("Searching...");
+  $("status").textContent = "Searching...";
 
   try {
     const params = new URLSearchParams({
@@ -118,29 +110,19 @@ async function searchVideos(append) {
 
     if (append && nextPage) params.set("pageToken", nextPage);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
-
-    let response;
-    let data;
-    try {
-      response = await fetch(
-        "https://www.googleapis.com/youtube/v3/search?" + params,
-        {signal: controller.signal}
-      );
-      data = await response.json();
-    } finally {
-      clearTimeout(timer);
-    }
+    const response = await fetch(
+      "https://www.googleapis.com/youtube/v3/search?" + params
+    );
+    const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error?.message || "Search failed.");
+      throw new Error(data.error?.message || "Search failed");
     }
 
     nextPage = data.nextPageToken || "";
 
     if (!data.items?.length && !append) {
-      showStatus("No results found. Try another search.");
+      $("status").textContent = "No results found.";
       return;
     }
 
@@ -154,9 +136,7 @@ async function searchVideos(append) {
       card.setAttribute("role", "button");
 
       const img = document.createElement("img");
-      // Smaller thumbnail request helps on slow connections.
-      img.src = "https://i.ytimg.com/vi/" +
-        encodeURIComponent(id) + "/mqdefault.jpg";
+      img.src = "https://i.ytimg.com/vi/" + encodeURIComponent(id) + "/mqdefault.jpg";
       img.alt = "";
       img.loading = "lazy";
 
@@ -186,12 +166,10 @@ async function searchVideos(append) {
       $("results").append(card);
     }
 
-    showStatus("Results for: " + searchTerm);
+    $("status").textContent = "Results for: " + searchTerm;
     $("more").classList.toggle("hidden", !nextPage);
-  } catch (error) {
-    showStatus(error.name === "AbortError"
-      ? "Search timed out. Try again when your connection is better."
-      : "Search error: " + error.message);
+  } catch (err) {
+    $("status").textContent = "Search failed: " + err.message;
   } finally {
     busy = false;
     $("search").disabled = false;
@@ -205,44 +183,41 @@ function openPlayer(id, title) {
 
   $("playingTitle").textContent = title;
   $("playerBox").replaceChildren();
-  $("loading").textContent = "Connecting to YouTube... This may take a while on a slow network.";
+  $("loading").textContent = "Connecting to YouTube...";
   $("loading").classList.remove("hidden");
   $("fallback").classList.add("hidden");
-  $("youtubeLink").href =
-    "https://www.youtube.com/watch?v=" + encodeURIComponent(id);
+  $("youtubeLink").href = "https://www.youtube.com/watch?v=" + encodeURIComponent(id);
 
   $("modal").classList.add("open");
   document.body.style.overflow = "hidden";
 
   const iframe = document.createElement("iframe");
   iframe.title = title;
-  iframe.allow = "accelerometer; autoplay; encrypted-media; picture-in-picture; web-share";
+  iframe.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
   iframe.allowFullscreen = true;
-  iframe.referrerPolicy = "strict-origin-when-cross-origin";
-  iframe.loading = "eager";
 
-  // Add the player after opening the popup so it loads only when requested.
-  $("playerBox").append(iframe);
-  iframe.src = "https://www.youtube-nocookie.com/embed/" +
-    encodeURIComponent(id) + "?rel=0";
+  // Regular YouTube embed, using the page's origin as the referrer.
+  iframe.referrerPolicy = "origin";
+  iframe.src = "https://www.youtube.com/embed/" +
+    encodeURIComponent(id) + "?autoplay=1&rel=0";
 
   iframe.addEventListener("load", () => {
-    $("loading").textContent =
-      "The player loaded. If the video stays blank, use the YouTube link below.";
+    $("loading").textContent = "Player loaded. If playback stays stuck, use the YouTube link below.";
   });
 
+  $("playerBox").append(iframe);
+
   loadTimer = setTimeout(() => {
-    $("loading").textContent =
-      "Still waiting? The connection may be slow, or YouTube may have blocked this embed.";
+    $("loading").textContent = "Video is taking a while to load.";
     $("fallback").classList.remove("hidden");
-  }, 12000);
+  }, 10000);
 }
 
 function closePlayer() {
   clearTimeout(loadTimer);
   $("modal").classList.remove("open");
   document.body.style.overflow = "";
-  $("playerBox").replaceChildren(); // Stop playback when closing.
+  $("playerBox").replaceChildren();
 }
 
 $("close").addEventListener("click", closePlayer);
